@@ -9,7 +9,7 @@ from mcp.server.fastmcp import FastMCP
 
 from .downloader import _background_download_single
 from .state import state
-from .utils import format_illust_summary, format_user_summary, handle_api_error
+from .utils import format_illust_summary, format_user_summary, handle_api_error, handle_api_error_with_retry, refresh_token_if_needed
 
 logger = logging.getLogger('pixiv-mcp-server')
 mcp = FastMCP("pixiv-server")
@@ -44,6 +44,18 @@ async def download(illust_id: Optional[int] = None, illust_ids: Optional[List[in
         asyncio.create_task(_background_download_single(an_id))
     
     return f"已成功将 {len(unique_ids)} 个作品的下载任务派发至后台。请注意，动图(Ugoira)合成可能需要几十秒到数分钟，请耐心等待文件下载和处理完成。"
+
+@mcp.tool()
+async def refresh_token() -> str:
+    """手动刷新Pixiv API token。当遇到认证错误时可以使用此工具。"""
+    if not state.refresh_token:
+        return "错误：未找到refresh_token。请检查环境变量PIXIV_REFRESH_TOKEN是否正确设置，或运行get_token.py重新获取token。"
+    
+    success = await refresh_token_if_needed()
+    if success:
+        return "Token刷新成功！现在可以正常使用Pixiv API功能了。"
+    else:
+        return "Token刷新失败。可能的原因：\n1. refresh_token已过期，请运行get_token.py重新获取\n2. 网络连接问题\n3. 代理设置问题\n请检查日志获取详细错误信息。"
 
 @mcp.tool()
 async def download_random_from_recommendation(count: int = 5) -> str:
@@ -83,11 +95,27 @@ async def search_illust(
     offset: int = 0,
     search_r18: bool = False
 ) -> str:
-    """根据关键词搜索插画。可选择是否包含 R-18 内容。"""
+    """根据关键词搜索插画。可选择是否包含 R-18 内容。支持自动token刷新。"""
     search_word = f"{word} R-18" if search_r18 else word
+    
+    # 首次尝试API调用
     json_result = await asyncio.to_thread(state.api.search_illust, search_word, search_target=search_target, sort=sort, duration=duration, offset=offset)
-    error = handle_api_error(json_result)
-    if error:
+    
+    # 使用新的错误处理机制，支持自动重试
+    error, retry_result = await handle_api_error_with_retry(
+        json_result, 
+        state.api.search_illust, 
+        search_word, 
+        search_target=search_target, 
+        sort=sort, 
+        duration=duration, 
+        offset=offset
+    )
+    
+    # 如果重试成功，使用新的结果
+    if retry_result:
+        json_result = retry_result
+    elif error:
         return error
     
     illusts = json_result.get('illusts', [])
@@ -153,13 +181,24 @@ async def search_user(word: str, offset: int = 0) -> str:
 
 @mcp.tool()
 async def illust_recommended(offset: int = 0) -> str:
-    """获取官方推荐插画的文本列表。注意：此工具只返回作品信息，不执行下载。如需下载，请使用'download_random_from_recommendation'工具。"""
+    """获取官方推荐插画的文本列表。注意：此工具只返回作品信息，不执行下载。如需下载，请使用'download_random_from_recommendation'工具。支持自动token刷新。"""
     if not state.is_authenticated:
         return "错误: 此功能需要认证。请先使用 auth 工具或在客户端设置 PIXIV_REFRESH_TOKEN 环境变量。"
         
+    # 首次尝试API调用
     json_result = await asyncio.to_thread(state.api.illust_recommended, offset=offset)
-    error = handle_api_error(json_result)
-    if error:
+    
+    # 使用新的错误处理机制，支持自动重试
+    error, retry_result = await handle_api_error_with_retry(
+        json_result, 
+        state.api.illust_recommended, 
+        offset=offset
+    )
+    
+    # 如果重试成功，使用新的结果
+    if retry_result:
+        json_result = retry_result
+    elif error:
         return error
     
     illusts = json_result.get('illusts', [])
