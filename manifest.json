@@ -1,0 +1,130 @@
+{
+  "dxt_version": "0.1",
+  "name": "pixiv-mcp-server",
+  "display_name": "Pixiv MCP Server",
+  "version": "2.0.0",
+  "description": "A powerful Pixiv toolset for Large Language Models via MCP",
+  "long_description": "A comprehensive Pixiv integration that provides browsing, searching, and downloading capabilities for Pixiv content through the Model Context Protocol (MCP). Features include multi-dimensional search, intelligent downloading with automatic file organization, community content browsing, and secure OAuth 2.0 authentication.",
+  "author": {
+    "name": "AI",
+    "email": "ai@example.com",
+    "url": "https://github.com/222wcnm/pixiv-mcp-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/222wcnm/pixiv-mcp-server"
+  },
+  "homepage": "https://github.com/222wcnm/pixiv-mcp-server",
+  "documentation": "https://github.com/222wcnm/pixiv-mcp-server/blob/main/README.md",
+  "support": "https://github.com/222wcnm/pixiv-mcp-server/issues",
+  "keywords": ["pixiv", "art", "illustration", "download", "search", "mcp"],
+  "license": "MIT",
+  "server": {
+    "type": "python",
+    "entry_point": "server/main.py",
+    "mcp_config": {
+      "command": "python",
+      "args": ["${__dirname}/server/main.py"],
+      "env": {
+        "PIXIV_REFRESH_TOKEN": "${user_config.pixiv_refresh_token}",
+        "DOWNLOAD_PATH": "${user_config.download_path}",
+        "FILENAME_TEMPLATE": "${user_config.filename_template}",
+        "https_proxy": "${user_config.proxy_url}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "set_download_path",
+      "description": "Set the default local save location for images and animations"
+    },
+    {
+      "name": "download",
+      "description": "Download one or more artworks by ID with intelligent storage rules"
+    },
+    {
+      "name": "refresh_token",
+      "description": "Manually refresh Pixiv API token when encountering authentication errors"
+    },
+    {
+      "name": "download_random_from_recommendation",
+      "description": "Download random artworks from recommendations"
+    },
+    {
+      "name": "search_illust",
+      "description": "Search for illustrations using keywords with various filters"
+    },
+    {
+      "name": "illust_detail",
+      "description": "Get detailed information about a specific artwork"
+    },
+    {
+      "name": "illust_related",
+      "description": "Find artworks related to a specific illustration"
+    },
+    {
+      "name": "illust_ranking",
+      "description": "Browse Pixiv rankings (daily, weekly, monthly, etc.)"
+    },
+    {
+      "name": "search_user",
+      "description": "Search for users/artists on Pixiv"
+    },
+    {
+      "name": "illust_recommended",
+      "description": "Get personalized artwork recommendations"
+    },
+    {
+      "name": "trending_tags_illust",
+      "description": "Get currently trending illustration tags"
+    },
+    {
+      "name": "illust_follow",
+      "description": "Browse artworks from followed artists"
+    },
+    {
+      "name": "user_bookmarks",
+      "description": "Browse user's bookmarked artworks"
+    },
+    {
+      "name": "user_following",
+      "description": "View user's following list"
+    }
+  ],
+  "tools_generated": false,
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.10"
+    }
+  },
+  "user_config": {
+    "pixiv_refresh_token": {
+      "type": "string",
+      "title": "Pixiv Refresh Token",
+      "description": "Your Pixiv OAuth refresh token for API authentication. Use get_token.py to obtain this.",
+      "sensitive": true,
+      "required": true
+    },
+    "download_path": {
+      "type": "directory",
+      "title": "Download Directory",
+      "description": "Directory where downloaded artworks will be saved",
+      "required": false,
+      "default": "./downloads"
+    },
+    "filename_template": {
+      "type": "string",
+      "title": "Filename Template",
+      "description": "Template for downloaded file names. Available variables: {author}, {title}, {id}",
+      "required": false,
+      "default": "{author} - {title}_{id}"
+    },
+    "proxy_url": {
+      "type": "string",
+      "title": "Proxy URL (Optional)",
+      "description": "HTTPS proxy URL if needed for accessing Pixiv (format: http://host:port)",
+      "required": false
+    }
+  }
+}

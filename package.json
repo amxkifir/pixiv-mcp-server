@@ -1,0 +1,49 @@
+{
+  "name": "pixiv-mcp-server-dxt",
+  "version": "2.0.0",
+  "description": "A powerful Pixiv toolset for Large Language Models via MCP - DXT Extension",
+  "main": "server/main.py",
+  "scripts": {
+    "start": "python server/main.py",
+    "test": "python -m pytest tests/ -v",
+    "lint": "python -m flake8 pixiv_mcp_server/",
+    "format": "python -m black pixiv_mcp_server/"
+  },
+  "keywords": [
+    "pixiv",
+    "art",
+    "illustration",
+    "download",
+    "search",
+    "mcp",
+    "dxt",
+    "extension"
+  ],
+  "author": {
+    "name": "AI",
+    "email": "ai@example.com",
+    "url": "https://github.com/222wcnm/pixiv-mcp-server"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/222wcnm/pixiv-mcp-server.git"
+  },
+  "bugs": {
+    "url": "https://github.com/222wcnm/pixiv-mcp-server/issues"
+  },
+  "homepage": "https://github.com/222wcnm/pixiv-mcp-server#readme",
+  "engines": {
+    "python": ">=3.10"
+  },
+  "devDependencies": {
+    "@anthropic-ai/dxt": "latest"
+  },
+  "dxt": {
+    "manifest": "manifest.json",
+    "server": {
+      "type": "python",
+      "entry_point": "server/main.py"
+    }
+  }
+}
