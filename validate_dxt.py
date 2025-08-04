@@ -48,6 +48,10 @@ def validate_manifest():
             print("❌ No tools defined")
             return False
         
+        expected_tools = 15
+        if len(tools) != expected_tools:
+            print(f"⚠️  Expected {expected_tools} tools, found {len(tools)}")
+        
         print(f"✅ Manifest valid - {len(tools)} tools defined")
         return True
         

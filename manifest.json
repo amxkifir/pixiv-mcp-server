@@ -47,6 +47,10 @@
       "description": "Manually refresh Pixiv API token when encountering authentication errors"
     },
     {
+      "name": "set_refresh_token",
+      "description": "Set or update the Pixiv refresh token for authentication. This allows configuring the token after DXT installation."
+    },
+    {
       "name": "download_random_from_recommendation",
       "description": "Download random artworks from recommendations"
     },

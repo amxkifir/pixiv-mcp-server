@@ -47,6 +47,18 @@
 
 ## 🚀 快速开始
 
+### 📖 文档链接 / Documentation
+
+**中文文档:**
+- [中文说明文档](DXT_README_CN.md)
+- [安装指南](安装指南.md)
+- [快速开始](快速开始.md)
+- [DXT Token 配置指南](DXT_TOKEN_配置指南.md) - DXT 专用 token 配置方法
+
+**English:**
+- [Installation Guide](INSTALLATION_GUIDE.md)
+- [DXT Extension README](DXT_README.md)
+
 ### 步骤 1: 克隆或下载项目
 
 ```bash

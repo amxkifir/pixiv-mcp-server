@@ -120,6 +120,20 @@ TOOLS = [
         }
     ),
     Tool(
+        name="set_refresh_token",
+        description="Set or update the Pixiv refresh token for authentication. This allows configuring the token after DXT installation.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "refresh_token": {
+                    "type": "string",
+                    "description": "The Pixiv refresh token obtained from the authentication process"
+                }
+            },
+            "required": ["refresh_token"]
+        }
+    ),
+    Tool(
         name="download_random_from_recommendation",
         description="Download random artworks from recommendations.",
         inputSchema={
@@ -368,11 +382,11 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextCon
         logger.info(f"Tool called: {name} with arguments: {arguments}")
         
         # Ensure authentication before API calls
-        if name != "set_download_path" and name != "refresh_token":
+        if name not in ["set_download_path", "refresh_token", "set_refresh_token"]:
             if not state.is_authenticated:
                 return [TextContent(
                     type="text",
-                    text="错误：未认证。请确保已设置有效的 PIXIV_REFRESH_TOKEN 环境变量，或使用 refresh_token 工具进行认证。"
+                    text="错误：未认证。请先使用 set_refresh_token 工具设置 refresh token，或使用 refresh_token 工具进行认证。"
                 )]
         
         # Route to appropriate handler
@@ -385,6 +399,8 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextCon
             )
         elif name == "refresh_token":
             result = await tool_refresh_token()
+        elif name == "set_refresh_token":
+            result = await tool_set_refresh_token(arguments["refresh_token"])
         elif name == "download_random_from_recommendation":
             result = await tool_download_random_from_recommendation(
                 arguments.get("count", 5)
@@ -485,11 +501,36 @@ async def tool_download(illust_id: Optional[int] = None, illust_ids: Optional[Li
 async def tool_refresh_token() -> str:
     """Refresh token tool implementation."""
     try:
-        await refresh_token_if_needed()
-        return "Token 刷新成功。"
+        if not state.refresh_token:
+            return "错误：未设置 refresh token。请先使用 set_refresh_token 工具设置 token。"
+        
+        state.api.auth(refresh_token=state.refresh_token)
+        state.is_authenticated = True
+        state.user_id = state.api.user_id
+        return f"认证成功！用户 ID: {state.user_id}"
     except Exception as e:
         logger.error(f"Token 刷新失败: {e}")
-        return f"Token 刷新失败: {e}"
+        return f"认证失败: {str(e)}"
+
+async def tool_set_refresh_token(refresh_token: str) -> str:
+    """Set or update the Pixiv refresh token."""
+    try:
+        if not refresh_token or not refresh_token.strip():
+            return "错误：refresh token 不能为空。"
+        
+        # Update the state with new token
+        state.refresh_token = refresh_token.strip()
+        
+        # Try to authenticate immediately
+        state.api.auth(refresh_token=state.refresh_token)
+        state.is_authenticated = True
+        state.user_id = state.api.user_id
+        
+        return f"✅ Refresh token 设置成功并已完成认证！\n用户 ID: {state.user_id}\n\n现在您可以使用所有 Pixiv 功能了。"
+    except Exception as e:
+        # Even if authentication fails, we still save the token
+        state.refresh_token = refresh_token.strip()
+        return f"⚠️ Refresh token 已保存，但认证失败: {str(e)}\n\n请检查 token 是否有效，或稍后使用 refresh_token 工具重试认证。"
 
 async def tool_download_random_from_recommendation(count: int = 5) -> str:
     """Download random from recommendation tool implementation."""
