@@ -21,18 +21,18 @@
   ],
   "author": {
     "name": "AI",
-    "email": "ai@example.com",
-    "url": "https://github.com/222wcnm/pixiv-mcp-server"
+    "email": "noreply@example.com",
+    "url": "https://github.com/amxkifir/pixiv-mcp-server"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/222wcnm/pixiv-mcp-server.git"
+    "url": "https://github.com/amxkifir/pixiv-mcp-server.git"
   },
   "bugs": {
-    "url": "https://github.com/222wcnm/pixiv-mcp-server/issues"
+    "url": "https://github.com/amxkifir/pixiv-mcp-server/issues"
   },
-  "homepage": "https://github.com/222wcnm/pixiv-mcp-server#readme",
+  "homepage": "https://github.com/amxkifir/pixiv-mcp-server#readme",
   "engines": {
     "python": ">=3.10"
   },

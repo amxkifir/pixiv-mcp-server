@@ -20,7 +20,7 @@
 
 2. **Clone and prepare the project:**
    ```bash
-   git clone https://github.com/222wcnm/pixiv-mcp-server.git
+git clone https://github.com/amxkifir/pixiv-mcp-server.git
    cd pixiv-mcp-server
    ```
 
@@ -198,7 +198,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 📞 Support
 
-- **Issues:** [GitHub Issues](https://github.com/222wcnm/pixiv-mcp-server/issues)
+- **Issues:** [GitHub Issues](https://github.com/amxkifir/pixiv-mcp-server/issues)
 - **Documentation:** [Main README](README.md)
 - **Token Guide:** [TOKEN_REFRESH_GUIDE.md](TOKEN_REFRESH_GUIDE.md)
 

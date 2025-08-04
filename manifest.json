@@ -7,16 +7,16 @@
   "long_description": "A comprehensive Pixiv integration that provides browsing, searching, and downloading capabilities for Pixiv content through the Model Context Protocol (MCP). Features include multi-dimensional search, intelligent downloading with automatic file organization, community content browsing, and secure OAuth 2.0 authentication.",
   "author": {
     "name": "AI",
-    "email": "ai@example.com",
-    "url": "https://github.com/222wcnm/pixiv-mcp-server"
+    "email": "noreply@example.com",
+    "url": "https://github.com/amxkifir/pixiv-mcp-server"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/222wcnm/pixiv-mcp-server"
+    "url": "https://github.com/amxkifir/pixiv-mcp-server"
   },
-  "homepage": "https://github.com/222wcnm/pixiv-mcp-server",
-  "documentation": "https://github.com/222wcnm/pixiv-mcp-server/blob/main/README.md",
-  "support": "https://github.com/222wcnm/pixiv-mcp-server/issues",
+  "homepage": "https://github.com/amxkifir/pixiv-mcp-server",
+  "documentation": "https://github.com/amxkifir/pixiv-mcp-server/blob/main/README.md",
+  "support": "https://github.com/amxkifir/pixiv-mcp-server/issues",
   "keywords": ["pixiv", "art", "illustration", "download", "search", "mcp"],
   "license": "MIT",
   "server": {

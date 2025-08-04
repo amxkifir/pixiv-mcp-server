@@ -2,7 +2,7 @@
 name = "pixiv-mcp-server"
 version = "2.0.0"
 description = "A powerful Pixiv toolset for Large Language Models via MCP."
-authors = [{ name = "AI", email = "ai@example.com" }]
+authors = [{ name = "AI", email = "noreply@example.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
 requires-python = ">=3.10"
@@ -21,8 +21,8 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/222wcnm/pixiv-mcp-server"
-Issues = "https://github.com/222wcnm/pixiv-mcp-server/issues"
+Homepage = "https://github.com/amxkifir/pixiv-mcp-server"
+Issues = "https://github.com/amxkifir/pixiv-mcp-server/issues"
 
 [project.scripts]
 pixiv-mcp-server = "pixiv_mcp_server.__main__:main"

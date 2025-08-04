@@ -62,7 +62,7 @@
 ### 步骤 1: 克隆或下载项目
 
 ```bash
-git clone https://github.com/222wcnm/pixiv-mcp-server.git
+git clone https://github.com/amxkifir/pixiv-mcp-server.git
 cd pixiv-mcp-server
 ```
 
