@@ -177,7 +177,7 @@
 1. 📖 查看完整文档：`DXT_README_CN.md`
 2. 🔍 检查安装指南：`安装指南.md`
 3. 🚀 参考快速开始：`快速开始.md`
-4. 🐛 提交问题：[GitHub Issues](https://github.com/222wcnm/pixiv-mcp-server/issues)
+4. 🐛 提交问题：[GitHub Issues](https://github.com/amxkifir/pixiv-mcp-server/issues)
 
 ---
 

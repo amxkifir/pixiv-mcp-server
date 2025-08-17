@@ -311,8 +311,8 @@ https_proxy=http://proxy.company.com:8080
 
 ## 🔗 相关链接
 
-- [GitHub 仓库](https://github.com/222wcnm/pixiv-mcp-server)
-- [问题报告](https://github.com/222wcnm/pixiv-mcp-server/issues)
+- [GitHub 仓库](https://github.com/amxkifir/pixiv-mcp-server)
+- [问题报告](https://github.com/amxkifir/pixiv-mcp-server/issues)
 - [Pixiv 官网](https://www.pixiv.net/)
 - [MCP 协议文档](https://modelcontextprotocol.io/)
 

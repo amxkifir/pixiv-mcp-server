@@ -123,15 +123,54 @@ def _generate_filename(illust: dict, page_num: int = 0) -> str:
         return f"{base_name}_p{page_num}"
     return base_name
 
-def format_illust_summary(illust: dict) -> str:
+def format_illust_summary(illust: dict, include_thumbnail: bool = False) -> str:
     tags = ", ".join([tag.get('name', '') for tag in illust.get('tags', [])[:5]])
-    return (
+    
+    # 基础信息
+    summary = (
         f"ID: {illust.get('id')} - \"{illust.get('title')}\"\n"
         f"  作者: {illust.get('user', {}).get('name')} (ID: {illust.get('user', {}).get('id')})\n"
         f"  类型: {illust.get('type')}\n"
         f"  标签: {tags}\n"
         f"  收藏数: {illust.get('total_bookmarks', 0)}, 浏览数: {illust.get('total_view', 0)}"
     )
+    
+    # 添加缩略图URL（如果请求）
+    if include_thumbnail:
+        thumbnail_url = _extract_thumbnail_url(illust)
+        if thumbnail_url:
+            summary += f"\n  缩略图: {thumbnail_url}"
+        else:
+            summary += "\n  缩略图: 暂无"
+    
+    return summary
+
+def _extract_thumbnail_url(illust: dict) -> str:
+    """从illust对象中提取缩略图URL"""
+    # 优先使用square_medium缩略图
+    image_urls = illust.get('image_urls', {})
+    if image_urls.get('square_medium'):
+        return image_urls['square_medium']
+    
+    # 备选：使用medium尺寸
+    if image_urls.get('medium'):
+        return image_urls['medium']
+    
+    # 对于多页作品，使用第一页的缩略图
+    meta_pages = illust.get('meta_pages', [])
+    if meta_pages and len(meta_pages) > 0:
+        first_page_urls = meta_pages[0].get('image_urls', {})
+        if first_page_urls.get('square_medium'):
+            return first_page_urls['square_medium']
+        if first_page_urls.get('medium'):
+            return first_page_urls['medium']
+    
+    # 最后尝试：单页作品的原图URL（虽然不是缩略图，但总比没有好）
+    meta_single_page = illust.get('meta_single_page', {})
+    if meta_single_page.get('original_image_url'):
+        return meta_single_page['original_image_url']
+    
+    return ""
 
 def format_user_summary(user_preview: dict) -> str:
     user = user_preview.get('user', {})

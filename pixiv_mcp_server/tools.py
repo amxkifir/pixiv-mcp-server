@@ -93,9 +93,10 @@ async def search_illust(
     sort: str = "date_desc", 
     duration: Optional[str] = None, 
     offset: int = 0,
-    search_r18: bool = False
+    search_r18: bool = False,
+    include_thumbnail: bool = False
 ) -> str:
-    """根据关键词搜索插画。可选择是否包含 R-18 内容。支持自动token刷新。"""
+    """根据关键词搜索插画。可选择是否包含 R-18 内容和缩略图。支持自动token刷新。"""
     search_word = f"{word} R-18" if search_r18 else word
     
     # 首次尝试API调用
@@ -122,7 +123,7 @@ async def search_illust(
     if not illusts:
         return f"抱歉，根据您提供的关键词 '{search_word}'，未能找到相关的插画。"
         
-    summary_list = [format_illust_summary(illust) for illust in illusts]
+    summary_list = [format_illust_summary(illust, include_thumbnail=include_thumbnail) for illust in illusts]
     return f"找到 {len(illusts)} 张关于 '{search_word}' 的插画:\n\n" + "\n\n".join(summary_list)
 
 @mcp.tool()
@@ -135,7 +136,7 @@ async def illust_detail(illust_id: int) -> str:
     return json.dumps(json_result.get('illust', {}), ensure_ascii=False, indent=2)
 
 @mcp.tool()
-async def illust_related(illust_id: int, offset: int = 0) -> str:
+async def illust_related(illust_id: int, offset: int = 0, include_thumbnail: bool = False) -> str:
     """获取与指定插画相关的推荐作品。"""
     json_result = await asyncio.to_thread(state.api.illust_related, illust_id, offset=offset)
     error = handle_api_error(json_result)
@@ -146,11 +147,11 @@ async def illust_related(illust_id: int, offset: int = 0) -> str:
     if not illusts:
         return f"找不到与插画 {illust_id} 相关的推荐。"
         
-    summary_list = [format_illust_summary(illust) for illust in illusts]
+    summary_list = [format_illust_summary(illust, include_thumbnail=include_thumbnail) for illust in illusts]
     return f"找到 {len(illusts)} 张相关推荐:\n\n" + "\n\n".join(summary_list)
 
 @mcp.tool()
-async def illust_ranking(mode: str = "day", date: Optional[str] = None, offset: int = 0) -> str:
+async def illust_ranking(mode: str = "day", date: Optional[str] = None, offset: int = 0, include_thumbnail: bool = False) -> str:
     """获取插画排行榜。"""
     json_result = await asyncio.to_thread(state.api.illust_ranking, mode=mode, date=date, offset=offset)
     error = handle_api_error(json_result)
@@ -161,7 +162,7 @@ async def illust_ranking(mode: str = "day", date: Optional[str] = None, offset: 
     if not illusts:
         return f"找不到模式为 '{mode}' 的排行榜结果。"
 
-    summary_list = [f"第 {i+1+offset} 名: {format_illust_summary(illust)}" for i, illust in enumerate(illusts)]
+    summary_list = [f"第 {i+1+offset} 名: {format_illust_summary(illust, include_thumbnail=include_thumbnail)}" for i, illust in enumerate(illusts)]
     return f"{mode.capitalize()} 排行榜:\n\n" + "\n\n".join(summary_list)
 
 @mcp.tool()
@@ -180,22 +181,23 @@ async def search_user(word: str, offset: int = 0) -> str:
     return f"找到 {len(users)} 位用户:\n\n" + "\n\n".join(summary_list)
 
 @mcp.tool()
-async def illust_recommended(offset: int = 0) -> str:
-    """获取官方推荐插画的文本列表。注意：此工具只返回作品信息，不执行下载。如需下载，请使用'download_random_from_recommendation'工具。支持自动token刷新。"""
+async def illust_recommended(offset: int = 0, include_thumbnail: bool = False) -> str:
+    """获取推荐插画 (需要认证)。"""
     if not state.is_authenticated:
         return "错误: 此功能需要认证。请先使用 auth 工具或在客户端设置 PIXIV_REFRESH_TOKEN 环境变量。"
         
-    # 首次尝试API调用
     json_result = await asyncio.to_thread(state.api.illust_recommended, offset=offset)
+    error = handle_api_error(json_result)
     
-    # 使用新的错误处理机制，支持自动重试
-    error, retry_result = await handle_api_error_with_retry(
-        json_result, 
-        state.api.illust_recommended, 
-        offset=offset
-    )
+    # 如果遇到错误，尝试刷新令牌并重试
+    retry_result = None
+    if error and "token" in error.lower():
+        logger.info("检测到令牌错误，尝试刷新令牌并重试...")
+        refresh_result = await refresh_token_if_needed()
+        if "成功" in refresh_result:
+            retry_result = await asyncio.to_thread(state.api.illust_recommended, offset=offset)
+            error = handle_api_error(retry_result)
     
-    # 如果重试成功，使用新的结果
     if retry_result:
         json_result = retry_result
     elif error:
@@ -205,7 +207,7 @@ async def illust_recommended(offset: int = 0) -> str:
     if not illusts:
         return "暂无推荐内容。"
         
-    summary_list = [format_illust_summary(illust) for illust in illusts]
+    summary_list = [format_illust_summary(illust, include_thumbnail=include_thumbnail) for illust in illusts]
     return f"为您推荐 {len(illusts)} 张插画:\n\n" + "\n\n".join(summary_list)
 
 @mcp.tool()
@@ -224,7 +226,7 @@ async def trending_tags_illust() -> str:
     return "当前的热门标签:\n" + "\n".join(tag_list)
 
 @mcp.tool()
-async def illust_follow(restrict: str = "public", offset: int = 0) -> str:
+async def illust_follow(restrict: str = "public", offset: int = 0, include_thumbnail: bool = False) -> str:
     """获取已关注作者的最新作品（首页动态）(需要认证)。"""
     if not state.is_authenticated:
         return "错误: 此功能需要认证。请先使用 auth 工具或在客户端设置 PIXIV_REFRESH_TOKEN 环境变量。"
@@ -238,7 +240,7 @@ async def illust_follow(restrict: str = "public", offset: int = 0) -> str:
     if not illusts:
         return "您的关注动态中暂时没有新作品。"
         
-    summary_list = [format_illust_summary(illust) for illust in illusts]
+    summary_list = [format_illust_summary(illust, include_thumbnail=include_thumbnail) for illust in illusts]
     return f"找到 {len(illusts)} 篇关注动态:\n\n" + "\n\n".join(summary_list)
 
 @mcp.tool()
