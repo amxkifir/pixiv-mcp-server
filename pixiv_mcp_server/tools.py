@@ -1,15 +1,18 @@
 import asyncio
+import base64
 import json
 import logging
 import random
+import tempfile
 from pathlib import Path
 from typing import List, Optional
+from urllib.parse import urlparse
 
 from mcp.server.fastmcp import FastMCP
 
 from .downloader import _background_download_single
 from .state import state
-from .utils import format_illust_summary, format_user_summary, handle_api_error, handle_api_error_with_retry, refresh_token_if_needed
+from .utils import format_illust_summary, format_user_summary, handle_api_error, handle_api_error_with_retry, refresh_token_if_needed, _extract_thumbnail_url
 
 logger = logging.getLogger('pixiv-mcp-server')
 mcp = FastMCP("pixiv-server")
@@ -286,3 +289,55 @@ async def user_following(user_id_to_check: Optional[int] = None, restrict: str =
         
     summary_list = [format_user_summary(user) for user in users]
     return f"用户 {target_user_id} 关注了 {len(users)} 位用户:\n\n" + "\n\n".join(summary_list)
+
+@mcp.tool()
+async def get_thumbnail_base64(illust_id: int) -> str:
+    """获取插画缩略图的base64编码数据，可直接在客户端显示。"""
+    try:
+        # 获取插画详情
+        detail_result = await asyncio.to_thread(state.api.illust_detail, illust_id)
+        error = handle_api_error(detail_result)
+        if error:
+            return f"错误: 无法获取插画信息: {error}"
+        
+        illust = detail_result['illust']
+        thumbnail_url = _extract_thumbnail_url(illust)
+        
+        if not thumbnail_url:
+            return "错误: 无法找到缩略图URL"
+        
+        # 创建临时文件
+        with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+            temp_path = temp_file.name
+        
+        try:
+            # 使用pixivpy3下载缩略图（自动处理Referer头）
+            await asyncio.to_thread(state.api.download, thumbnail_url, path=str(Path(temp_path).parent), name=Path(temp_path).name)
+            
+            # 读取文件并转换为base64
+            with open(temp_path, 'rb') as f:
+                image_data = f.read()
+            
+            # 获取文件扩展名来确定MIME类型
+            file_ext = Path(urlparse(thumbnail_url).path).suffix.lower()
+            mime_type = {
+                '.jpg': 'image/jpeg',
+                '.jpeg': 'image/jpeg', 
+                '.png': 'image/png',
+                '.gif': 'image/gif',
+                '.webp': 'image/webp'
+            }.get(file_ext, 'image/jpeg')
+            
+            base64_data = base64.b64encode(image_data).decode('utf-8')
+            data_url = f"data:{mime_type};base64,{base64_data}"
+            
+            return f"缩略图数据 (插画ID: {illust_id}):\n{data_url}"
+            
+        finally:
+            # 清理临时文件
+            if Path(temp_path).exists():
+                Path(temp_path).unlink()
+                
+    except Exception as e:
+        logger.error(f"获取缩略图base64失败 ({illust_id}): {e}", exc_info=True)
+        return f"错误: 获取缩略图失败: {str(e)}"

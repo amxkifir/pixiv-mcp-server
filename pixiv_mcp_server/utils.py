@@ -139,7 +139,12 @@ def format_illust_summary(illust: dict, include_thumbnail: bool = False) -> str:
     if include_thumbnail:
         thumbnail_url = _extract_thumbnail_url(illust)
         if thumbnail_url:
-            summary += f"\n  缩略图: {thumbnail_url}"
+            # 使用新的函数处理Pixiv图片访问，传入illust_id以提供base64获取指引
+            thumbnail_info = get_pixiv_image_with_referer(thumbnail_url, illust.get('id'))
+            if thumbnail_info != thumbnail_url:  # 如果返回了特殊说明
+                summary += f"\n\n{thumbnail_info}"
+            else:
+                summary += f"\n  缩略图: {thumbnail_url}"
         else:
             summary += "\n  缩略图: 暂无"
     
@@ -171,6 +176,36 @@ def _extract_thumbnail_url(illust: dict) -> str:
         return meta_single_page['original_image_url']
     
     return ""
+
+def get_pixiv_image_with_referer(url: str, illust_id: int = None) -> str:
+    """获取带有正确Referer头的Pixiv图片访问说明"""
+    if not url:
+        return "无可用图片URL"
+    
+    # 检查是否为Pixiv图片URL
+    if 'pximg.net' in url or 'pixiv.net' in url:
+        base64_hint = ""
+        if illust_id:
+            base64_hint = f"\n5. 获取可直接显示的缩略图: 使用get_thumbnail_base64工具，参数illust_id={illust_id}"
+        
+        return f"""⚠️ Pixiv图片需要特殊访问方式：
+
+🔗 图片URL: {url}
+
+📋 访问方法：
+1. 复制上述URL
+2. 在浏览器中打开 https://www.pixiv.net
+3. 登录您的Pixiv账号
+4. 在同一浏览器标签页中粘贴并访问图片URL{base64_hint}
+
+💡 原因说明：
+Pixiv的图片服务器有防盗链保护，需要正确的Referer头才能访问。直接访问会返回403 Forbidden错误。通过先访问Pixiv主站再访问图片URL可以绕过这个限制。
+
+🛠️ 技术细节：
+- 需要Referer: https://www.pixiv.net/ 或 https://app-api.pixiv.net/
+- 或者使用专门的Pixiv图片查看器扩展"""
+    
+    return url
 
 def format_user_summary(user_preview: dict) -> str:
     user = user_preview.get('user', {})
