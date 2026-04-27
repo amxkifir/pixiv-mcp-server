@@ -3,8 +3,8 @@
   "name": "pixiv-mcp-server",
   "display_name": "Pixiv MCP Server",
   "version": "2.0.0",
-  "description": "A powerful Pixiv toolset for Large Language Models via MCP",
-  "long_description": "A comprehensive Pixiv integration that provides browsing, searching, and downloading capabilities for Pixiv content through the Model Context Protocol (MCP). Features include multi-dimensional search, intelligent downloading with automatic file organization, community content browsing, and secure OAuth 2.0 authentication.",
+  "description": "26 tools for browsing, searching & downloading Pixiv illustrations and novels via MCP",
+  "long_description": "A comprehensive Pixiv MCP server with 26 tools covering illustrations and novels. Features include keyword/tag search, ranking browsing, personalized recommendations, novel reading, batch downloading with auto file organization, Ugoira-to-GIF conversion, and secure OAuth 2.0 PKCE authentication.",
   "author": {
     "name": "AI",
     "email": "noreply@example.com",
