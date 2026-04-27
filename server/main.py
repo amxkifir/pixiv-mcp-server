@@ -1487,6 +1487,7 @@ async def tool_download_novel(novel_id: Optional[int] = None,
                 'user': novel.get('user', {}),
                 'type': 'novel',
                 'tags': novel.get('tags', []),
+                'series': novel.get('series'),
             }
             from pixiv_mcp_server.utils import _generate_path_from_template, _generate_filename
             save_dir = Path(state.download_path) / _generate_path_from_template(compat_dict)

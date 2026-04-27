@@ -144,12 +144,16 @@ def _generate_path_from_template(illust: dict) -> str:
     else:
         tag = 'untagged'
 
+    series_data = illust.get('series')
+    series = _sanitize_filename(series_data.get('title', '')) if series_data else ''
+
     raw_path = template.format(
         author=author,
         title=title,
         id=illust_id,
         type=illust_type,
         tag=tag,
+        series=series,
     )
 
     raw_path = raw_path.strip('/')

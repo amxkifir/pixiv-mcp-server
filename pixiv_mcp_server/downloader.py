@@ -172,6 +172,7 @@ async def _background_download_novel(novel_id: int):
                 'user': novel.get('user', {}),
                 'type': 'novel',
                 'tags': novel.get('tags', []),
+                'series': novel.get('series'),
             }
 
             save_dir = Path(state.download_path) / _generate_path_from_template(compat_dict)

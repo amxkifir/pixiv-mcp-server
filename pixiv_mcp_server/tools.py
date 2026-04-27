@@ -554,6 +554,7 @@ async def download_novel(novel_id: Optional[int] = None, novel_ids: Optional[Lis
                 'user': novel.get('user', {}),
                 'type': 'novel',
                 'tags': novel.get('tags', []),
+                'series': novel.get('series'),
             }
             save_dir = Path(state.download_path) / _generate_path_from_template(compat_dict)
             save_dir.mkdir(parents=True, exist_ok=True)

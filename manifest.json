@@ -172,7 +172,7 @@
     "download_path_template": {
       "type": "string",
       "title": "Download Path Template",
-      "description": "Template for download subdirectory structure. Available variables: {author}, {type}, {tag}, {id}, {title}",
+      "description": "Template for download subdirectory structure. Available variables: {author}, {type}, {tag}, {id}, {title}, {series}",
       "required": false,
       "default": "{type}/{author}"
     },
