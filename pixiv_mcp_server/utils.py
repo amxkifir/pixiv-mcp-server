@@ -45,8 +45,11 @@ async def refresh_token_if_needed() -> bool:
         logger.error(f"Token刷新过程中发生异常: {e}")
         return False
 
-def handle_api_error(response: dict) -> Optional[str]:
+def handle_api_error(response, description: str = "") -> Optional[str]:
     """处理来自 Pixiv API 的错误响应并格式化"""
+    # Handle Exception objects passed from server/main.py
+    if isinstance(response, Exception):
+        return f"操作失败({description}): {response}" if description else f"操作失败: {response}"
     if not response:
         return "API 响应为空。"
     if 'error' in response:
@@ -61,47 +64,48 @@ def handle_api_error(response: dict) -> Optional[str]:
         return f"Pixiv API 错误: {msg} - {reason}".strip()
     return None
 
-async def handle_api_error_with_retry(response: dict, retry_func=None, *args, **kwargs) -> tuple[Optional[str], Optional[dict]]:
-    """处理API错误并在token失效时自动重试
-    
+async def handle_api_error_with_retry(api_call, description: str = "", *args, **kwargs) -> Optional[dict]:
+    """执行API调用并自动处理token过期重试（新约定：传入可调用对象）
+
     Args:
-        response: API响应
-        retry_func: 重试的函数
-        *args, **kwargs: 重试函数的参数
-    
+        api_call: 返回API响应的可调用对象（如 lambda）
+        description: 操作描述（用于日志）
+
     Returns:
-        (error_message, new_response): 错误信息和新的响应（如果重试成功）
+        API响应dict，或None表示无法恢复的错误
     """
+    import asyncio as _asyncio
+    try:
+        response = await api_call()
+    except Exception as e:
+        logger.error(f"API调用异常({description}): {e}")
+        return None
+
     if not response:
-        return "API 响应为空。", None
-        
+        logger.warning(f"API响应为空({description})")
+        return None
+
     if 'error' in response:
         error_details = response['error']
         msg = error_details.get('message', '未知错误')
         reason = error_details.get('reason', '')
-        
-        # 检查是否为token相关错误
-        if ('invalid_grant' in msg.lower() or 'oauth' in msg.lower() or 'unauthorized' in msg.lower()) and retry_func:
+
+        # Token相关错误，尝试刷新后重试
+        if ('invalid_grant' in msg.lower() or 'oauth' in msg.lower() or 'unauthorized' in msg.lower()):
             logger.warning(f"检测到token错误: {msg}，尝试刷新token并重试...")
-            
-            # 尝试刷新token
             if await refresh_token_if_needed():
                 try:
-                    # 重试API调用
-                    new_response = await asyncio.to_thread(retry_func, *args, **kwargs)
+                    new_response = await api_call()
                     if new_response and 'error' not in new_response:
                         logger.info("Token刷新后重试成功")
-                        return None, new_response
-                    else:
-                        return f"重试后仍然失败: {new_response.get('error', {}).get('message', '未知错误')}", None
+                        return new_response
                 except Exception as e:
-                    return f"重试过程中发生异常: {e}", None
-            else:
-                return f"Token刷新失败: {msg} - {reason}。请手动重新获取token。".strip(), None
-        
-        return f"Pixiv API 错误: {msg} - {reason}".strip(), None
-    
-    return None, None
+                    logger.error(f"重试异常: {e}")
+
+        logger.error(f"API返回非token错误({description}): msg={msg}, reason={reason}, 完整响应={str(response)[:500]}")
+        return None
+
+    return response
 
 def _sanitize_filename(name: str) -> str:
     """移除文件名中的非法字符"""
@@ -207,8 +211,7 @@ Pixiv的图片服务器有防盗链保护，需要正确的Referer头才能访�
     
     return url
 
-def format_user_summary(user_preview: dict) -> str:
-    user = user_preview.get('user', {})
+def format_user_summary(user: dict) -> str:
     return (
         f"用户ID: {user.get('id')} - {user.get('name')} (@{user.get('account')})\n"
         f"  关注状态: {'已关注' if user.get('is_followed') else '未关注'}\n"

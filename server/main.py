@@ -43,6 +43,12 @@ except ImportError as e:
 
 # Import our custom modules
 try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+try:
     from pixiv_mcp_server.state import state
     from pixiv_mcp_server.downloader import _background_download_single, HAS_FFMPEG
     from pixiv_mcp_server.utils import (
@@ -551,7 +557,7 @@ async def tool_download_random_from_recommendation(count: int = 5) -> str:
         return f"已从推荐中选择 {len(selected_illusts)} 个作品进行下载：\n\n{summary}\n\n下载任务已派发至后台。"
         
     except Exception as e:
-        return await handle_api_error(e, "获取推荐内容")
+        return handle_api_error(e, "获取推荐内容")
 
 async def tool_search_illust(word: str, search_target: str = "partial_match_for_tags", 
                            sort: str = "date_desc", duration: Optional[str] = None, 
@@ -559,24 +565,30 @@ async def tool_search_illust(word: str, search_target: str = "partial_match_for_
     """Search illust tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.search_illust(
+
+        # 直接调用以捕获真实错误
+        try:
+            raw_result = await asyncio.to_thread(
+                state.api.search_illust,
                 word=word,
                 search_target=search_target,
                 sort=sort,
                 duration=duration,
                 offset=offset
-            ),
-            f"搜索插画 '{word}'"
-        )
-        
-        if not json_result or 'illusts' not in json_result:
-            return f"搜索 '{word}' 未找到结果。"
-        
+            )
+        except Exception as raw_e:
+            return f"搜索 '{word}' 异常: {type(raw_e).__name__}: {raw_e}"
+
+        if raw_result is None:
+            return f"搜索 '{word}' 失败: API返回None(空响应)。"
+        if 'error' in raw_result:
+            return f"搜索 '{word}' 失败: API错误 - {raw_result['error']}"
+        if 'illusts' not in raw_result:
+            return f"搜索 '{word}' 失败: 缺少illusts字段。响应keys: {list(raw_result.keys())} 内容: {str(raw_result)[:500]}"
+
+        json_result = raw_result
+
         illusts = json_result['illusts']
-        if not illusts:
-            return f"搜索 '{word}' 未找到结果。"
         
         # Filter R-18 content if not requested
         if not search_r18:
@@ -586,135 +598,172 @@ async def tool_search_illust(word: str, search_target: str = "partial_match_for_
         return f"搜索 '{word}' 找到 {len(illusts)} 个结果（显示前10个）：\n\n{summary}"
         
     except Exception as e:
-        return await handle_api_error(e, f"搜索插画 '{word}'")
+        return handle_api_error(e, f"搜索插画 '{word}'")
 
 async def tool_illust_detail(illust_id: int) -> str:
     """Illust detail tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.illust_detail(illust_id),
-            f"获取作品详情 {illust_id}"
-        )
-        
-        if not json_result or 'illust' not in json_result:
-            return f"无法获取作品 {illust_id} 的详细信息。"
-        
-        return format_illust_summary(json_result['illust'], detailed=True)
-        
+
+        try:
+            json_result = await asyncio.to_thread(state.api.illust_detail, illust_id)
+        except Exception as raw_e:
+            return f"获取作品详情异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取作品 {illust_id} 的详细信息: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取作品 {illust_id}: API错误 {json_result['error']}"
+        if 'illust' not in json_result:
+            return f"无法获取作品 {illust_id}: 响应缺少illust字段。keys: {list(json_result.keys())}"
+
+        illust = json_result['illust']
+        result = format_illust_summary(illust)
+        # 详情页额外添加标签和描述
+        tags = ", ".join([tag.get('name', '') for tag in illust.get('tags', [])])
+        caption = illust.get('caption', '')
+        if caption:
+            result += f"\n\n描述: {caption[:500]}"
+        return result
+
     except Exception as e:
-        return await handle_api_error(e, f"获取作品详情 {illust_id}")
+        return handle_api_error(e, f"获取作品详情 {illust_id}")
 
 async def tool_illust_related(illust_id: int, offset: int = 0) -> str:
     """Illust related tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.illust_related(illust_id, offset=offset),
-            f"获取相关作品 {illust_id}"
-        )
-        
-        if not json_result or 'illusts' not in json_result:
-            return f"无法获取作品 {illust_id} 的相关作品。"
-        
+
+        try:
+            json_result = await asyncio.to_thread(state.api.illust_related, illust_id, offset=offset)
+        except Exception as raw_e:
+            return f"获取相关作品异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取作品 {illust_id} 的相关作品: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取作品 {illust_id}: API错误 {json_result['error']}"
+        if 'illusts' not in json_result:
+            return f"无法获取作品 {illust_id}: 响应缺少illusts字段。keys: {list(json_result.keys())}"
+
         illusts = json_result['illusts']
         if not illusts:
             return f"作品 {illust_id} 没有找到相关作品。"
-        
+
         summary = "\n".join([format_illust_summary(illust) for illust in illusts[:10]])
         return f"作品 {illust_id} 的相关作品（显示前10个）：\n\n{summary}"
-        
+
     except Exception as e:
-        return await handle_api_error(e, f"获取相关作品 {illust_id}")
+        return handle_api_error(e, f"获取相关作品 {illust_id}")
 
 async def tool_illust_ranking(mode: str = "day", date: Optional[str] = None, offset: int = 0) -> str:
     """Illust ranking tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.illust_ranking(mode=mode, date=date, offset=offset),
-            f"获取排行榜 {mode}"
-        )
-        
-        if not json_result or 'illusts' not in json_result:
-            return f"无法获取 {mode} 排行榜。"
-        
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.illust_ranking, mode=mode, date=date, offset=offset
+            )
+        except Exception as raw_e:
+            return f"获取排行榜异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取 {mode} 排行榜: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取 {mode} 排行榜: API错误 {json_result['error']}"
+        if 'illusts' not in json_result:
+            return f"无法获取 {mode} 排行榜: 响应缺少illusts字段。keys: {list(json_result.keys())}"
+
         illusts = json_result['illusts']
         if not illusts:
             return f"{mode} 排行榜暂无内容。"
-        
+
         summary = "\n".join([format_illust_summary(illust) for illust in illusts[:10]])
         return f"{mode} 排行榜（显示前10个）：\n\n{summary}"
-        
+
     except Exception as e:
-        return await handle_api_error(e, f"获取排行榜 {mode}")
+        return handle_api_error(e, f"获取排行榜 {mode}")
 
 async def tool_search_user(word: str, offset: int = 0) -> str:
     """Search user tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.search_user(word, offset=offset),
-            f"搜索用户 '{word}'"
-        )
-        
-        if not json_result or 'user_previews' not in json_result:
-            return f"搜索用户 '{word}' 未找到结果。"
-        
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.search_user, word, offset=offset
+            )
+        except Exception as raw_e:
+            return f"搜索用户异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"搜索用户 '{word}' 失败: API返回空。"
+        if 'error' in json_result:
+            return f"搜索用户 '{word}' 失败: API错误 {json_result['error']}"
+        if 'user_previews' not in json_result:
+            return f"搜索用户 '{word}' 失败: 缺少user_previews字段。keys: {list(json_result.keys())}"
+
         users = json_result['user_previews']
         if not users:
             return f"搜索用户 '{word}' 未找到结果。"
-        
+
         summary = "\n".join([format_user_summary(user['user']) for user in users[:10]])
         return f"搜索用户 '{word}' 找到 {len(users)} 个结果（显示前10个）：\n\n{summary}"
-        
+
     except Exception as e:
-        return await handle_api_error(e, f"搜索用户 '{word}'")
+        return handle_api_error(e, f"搜索用户 '{word}'")
 
 async def tool_illust_recommended(offset: int = 0) -> str:
     """Illust recommended tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.illust_recommended(offset=offset),
-            "获取推荐作品"
-        )
-        
-        if not json_result or 'illusts' not in json_result:
-            return "无法获取推荐作品。"
-        
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.illust_recommended, offset=offset
+            )
+        except Exception as raw_e:
+            return f"获取推荐异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return "无法获取推荐作品: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取推荐作品: API错误 {json_result['error']}"
+        if 'illusts' not in json_result:
+            return f"无法获取推荐作品: 缺少illusts字段。keys: {list(json_result.keys())}"
+
         illusts = json_result['illusts']
         if not illusts:
             return "暂无推荐作品。"
-        
+
         summary = "\n".join([format_illust_summary(illust) for illust in illusts[:10]])
         return f"推荐作品（显示前10个）：\n\n{summary}"
         
     except Exception as e:
-        return await handle_api_error(e, "获取推荐作品")
+        return handle_api_error(e, "获取推荐作品")
 
 async def tool_trending_tags_illust() -> str:
     """Trending tags illust tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.trending_tags_illust(),
-            "获取热门标签"
-        )
-        
-        if not json_result or 'trend_tags' not in json_result:
-            return "无法获取热门标签。"
-        
+
+        try:
+            json_result = await asyncio.to_thread(state.api.trending_tags_illust)
+        except Exception as raw_e:
+            return f"获取热门标签异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return "无法获取热门标签: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取热门标签: API错误 {json_result['error']}"
+        if 'trend_tags' not in json_result:
+            return f"无法获取热门标签: 响应缺少trend_tags字段。keys: {list(json_result.keys())}"
+
         tags = json_result['trend_tags']
         if not tags:
             return "暂无热门标签。"
-        
+
         tag_list = []
         for tag_info in tags[:20]:
             tag = tag_info.get('tag', '')
@@ -723,82 +772,99 @@ async def tool_trending_tags_illust() -> str:
                 tag_list.append(f"{tag} ({translated_name})")
             else:
                 tag_list.append(tag)
-        
+
         return f"当前热门标签：\n\n{', '.join(tag_list)}"
-        
+
     except Exception as e:
-        return await handle_api_error(e, "获取热门标签")
+        return handle_api_error(e, "获取热门标签")
 
 async def tool_illust_follow(restrict: str = "public", offset: int = 0) -> str:
     """Illust follow tool implementation."""
     try:
         await refresh_token_if_needed()
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.illust_follow(restrict=restrict, offset=offset),
-            "获取关注动态"
-        )
-        
-        if not json_result or 'illusts' not in json_result:
-            return "无法获取关注动态。"
-        
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.illust_follow, restrict=restrict, offset=offset
+            )
+        except Exception as raw_e:
+            return f"获取关注动态异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return "无法获取关注动态: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取关注动态: API错误 {json_result['error']}"
+        if 'illusts' not in json_result:
+            return f"无法获取关注动态: 响应缺少illusts字段。keys: {list(json_result.keys())}"
+
         illusts = json_result['illusts']
         if not illusts:
             return "暂无关注动态。"
-        
+
         summary = "\n".join([format_illust_summary(illust) for illust in illusts[:10]])
         return f"关注动态（显示前10个）：\n\n{summary}"
-        
-    except Exception as e:
-        return await handle_api_error(e, "获取关注动态")
 
-async def tool_user_bookmarks(user_id_to_check: Optional[int] = None, restrict: str = "public", 
+    except Exception as e:
+        return handle_api_error(e, "获取关注动态")
+
+async def tool_user_bookmarks(user_id_to_check: Optional[int] = None, restrict: str = "public",
                             tag: Optional[str] = None, max_bookmark_id: Optional[int] = None) -> str:
     """User bookmarks tool implementation."""
     try:
         await refresh_token_if_needed()
-        
+
         user_id = user_id_to_check or state.user_id
         if not user_id:
             return "错误：无法确定用户ID。请先认证或提供 user_id_to_check 参数。"
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.user_bookmarks_illust(
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.user_bookmarks_illust,
                 user_id, restrict=restrict, tag=tag, max_bookmark_id=max_bookmark_id
-            ),
-            f"获取用户 {user_id} 的收藏"
-        )
-        
-        if not json_result or 'illusts' not in json_result:
-            return f"无法获取用户 {user_id} 的收藏。"
-        
+            )
+        except Exception as raw_e:
+            return f"获取收藏异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取用户 {user_id} 的收藏: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取用户 {user_id}: API错误 {json_result['error']}"
+        if 'illusts' not in json_result:
+            return f"无法获取用户 {user_id}: 响应缺少illusts字段。keys: {list(json_result.keys())}"
+
         illusts = json_result['illusts']
         if not illusts:
             return f"用户 {user_id} 暂无收藏作品。"
-        
+
         summary = "\n".join([format_illust_summary(illust) for illust in illusts[:10]])
         return f"用户 {user_id} 的收藏（显示前10个）：\n\n{summary}"
-        
-    except Exception as e:
-        return await handle_api_error(e, f"获取用户收藏")
 
-async def tool_user_following(user_id_to_check: Optional[int] = None, restrict: str = "public", 
+    except Exception as e:
+        return handle_api_error(e, f"获取用户收藏")
+
+async def tool_user_following(user_id_to_check: Optional[int] = None, restrict: str = "public",
                             offset: int = 0) -> str:
     """User following tool implementation."""
     try:
         await refresh_token_if_needed()
-        
+
         user_id = user_id_to_check or state.user_id
         if not user_id:
             return "错误：无法确定用户ID。请先认证或提供 user_id_to_check 参数。"
-        
-        json_result = await handle_api_error_with_retry(
-            lambda: state.api.user_following(user_id, restrict=restrict, offset=offset),
-            f"获取用户 {user_id} 的关注列表"
-        )
-        
-        if not json_result or 'user_previews' not in json_result:
-            return f"无法获取用户 {user_id} 的关注列表。"
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.user_following, user_id, restrict=restrict, offset=offset
+            )
+        except Exception as raw_e:
+            return f"获取关注列表异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取用户 {user_id} 的关注列表: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取用户 {user_id}: API错误 {json_result['error']}"
+        if 'user_previews' not in json_result:
+            return f"无法获取用户 {user_id}: 响应缺少user_previews字段。keys: {list(json_result.keys())}"
         
         users = json_result['user_previews']
         if not users:
@@ -808,7 +874,7 @@ async def tool_user_following(user_id_to_check: Optional[int] = None, restrict: 
         return f"用户 {user_id} 的关注列表（显示前10个）：\n\n{summary}"
         
     except Exception as e:
-        return await handle_api_error(e, f"获取用户关注列表")
+        return handle_api_error(e, f"获取用户关注列表")
 
 def setup_environment():
     """Setup environment variables and configuration."""

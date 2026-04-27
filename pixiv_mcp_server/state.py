@@ -21,7 +21,7 @@ class PixivState:
 
         proxy = os.getenv('https_proxy')
         if proxy:
-            self.api.set_proxy(proxy)
+            self.api.set_api_proxy(proxy)
             logger.info(f"已配置代理: {proxy}")
 
 # 创建全局唯一的 state 实例
