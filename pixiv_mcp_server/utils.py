@@ -127,6 +127,37 @@ def _generate_filename(illust: dict, page_num: int = 0) -> str:
         return f"{base_name}_p{page_num}"
     return base_name
 
+def _generate_path_from_template(illust: dict) -> str:
+    """从 DOWNLOAD_PATH_TEMPLATE 生成相对于 download_path 的子目录路径"""
+    template = state.download_path_template.strip()
+    if not template:
+        return ''
+
+    author = _sanitize_filename(illust.get('user', {}).get('name', 'UnknownAuthor'))
+    title = _sanitize_filename(illust.get('title', 'Untitled'))
+    illust_id = illust.get('id', 0)
+    illust_type = illust.get('type', 'illust')
+
+    tags = illust.get('tags', [])
+    if tags and len(tags) > 0:
+        tag = _sanitize_filename(tags[0].get('name', 'untagged'))
+    else:
+        tag = 'untagged'
+
+    raw_path = template.format(
+        author=author,
+        title=title,
+        id=illust_id,
+        type=illust_type,
+        tag=tag,
+    )
+
+    raw_path = raw_path.strip('/')
+    while '//' in raw_path:
+        raw_path = raw_path.replace('//', '/')
+
+    return raw_path
+
 def format_illust_summary(illust: dict, include_thumbnail: bool = False) -> str:
     tags = ", ".join([tag.get('name', '') for tag in illust.get('tags', [])[:5]])
     

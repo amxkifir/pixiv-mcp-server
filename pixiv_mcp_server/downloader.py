@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from .state import state
 from .utils import (
     _generate_filename,
+    _generate_path_from_template,
     _sanitize_filename,
     check_ffmpeg,
     handle_api_error,
@@ -85,7 +86,7 @@ async def _background_download_single(illust_id: int):
             page_count = illust.get('page_count', 1)
             illust_type = illust.get('type')
             
-            save_path_base = Path(state.download_path)
+            save_path_base = Path(state.download_path) / _generate_path_from_template(illust)
             if page_count > 1 or illust_type == 'ugoira':
                 sub_folder_name = _sanitize_filename(f"{illust_id} - {illust.get('title', 'Untitled')}")
                 save_path_base = save_path_base / sub_folder_name
@@ -93,23 +94,23 @@ async def _background_download_single(illust_id: int):
             save_path_base.mkdir(parents=True, exist_ok=True)
             
             if illust_type == 'ugoira':
-                if not HAS_FFMPEG:
-                    logger.warning(f"跳过动图转换 ({illust_id}): 未找到 FFmpeg。")
-                    return
-                
                 metadata = await asyncio.to_thread(state.api.ugoira_metadata, illust_id)
                 error = handle_api_error(metadata)
                 if error:
                     logger.error(f"下载失败 ({illust_id}): 无法获取动图元数据: {error}")
                     return
-                
+
                 zip_url = metadata['ugoira_metadata']['zip_urls']['medium']
                 zip_filename = os.path.basename(urlparse(zip_url).path)
                 zip_path = save_path_base / zip_filename
-                
+
                 await asyncio.to_thread(state.api.download, zip_url, path=str(save_path_base))
                 logger.info(f"动图 {illust_id} 的 .zip 文件已下载至 {zip_path}")
-                
+
+                if not HAS_FFMPEG:
+                    logger.warning(f"跳过GIF转换 ({illust_id}): 未找到 FFmpeg。zip文件已保存。")
+                    return
+
                 gif_filename_base = _generate_filename(illust)
                 final_gif_path = save_path_base / f"{gif_filename_base}.gif"
 

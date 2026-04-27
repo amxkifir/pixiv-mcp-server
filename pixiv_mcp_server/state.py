@@ -16,6 +16,7 @@ class PixivState:
         self.refresh_token: Optional[str] = os.getenv('PIXIV_REFRESH_TOKEN')
         self.download_path = os.getenv('DOWNLOAD_PATH', './downloads')
         self.filename_template = os.getenv('FILENAME_TEMPLATE', '{author} - {title}_{id}')
+        self.download_path_template = os.getenv('DOWNLOAD_PATH_TEMPLATE', '')
         # 新增：并发下载控制器，限制为5个并发
         self.download_semaphore = asyncio.Semaphore(5)
 

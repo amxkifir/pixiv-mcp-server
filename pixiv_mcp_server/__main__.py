@@ -8,7 +8,7 @@ def setup_environment():
     加载并解析所有环境变量。
     这是启动过程的第一步，确保环境准备就绪。
     """
-    load_dotenv()
+    load_dotenv(override=True)
     
     # 解决部分MCP客户端使用 `KEY=VALUE` 格式传递环境变量的问题
     # 这段逻辑必须在任何其他模块导入之前执行
@@ -44,6 +44,7 @@ def main():
     logger.info("Pixiv MCP 服务器启动中...")
     logger.info(f"默认下载路径: {state.download_path}")
     logger.info(f"文件名模板: {state.filename_template}")
+    logger.info(f"下载路径模板: {state.download_path_template or '(无，使用扁平结构)'}")
     logger.info(f"FFmpeg支持: {'是' if HAS_FFMPEG else '否'}")
 
     # 步骤 4: 自动认证

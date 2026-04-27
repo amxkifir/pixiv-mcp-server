@@ -44,7 +44,7 @@ except ImportError as e:
 # Import our custom modules
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(override=True)
 except ImportError:
     pass
 
@@ -899,6 +899,7 @@ async def main():
         logger.info("Pixiv MCP Server (DXT) starting...")
         logger.info(f"Default download path: {state.download_path}")
         logger.info(f"Filename template: {state.filename_template}")
+        logger.info(f"Download path template: {state.download_path_template or '(none, flat structure)'}")
         logger.info(f"FFmpeg support: {'Yes' if HAS_FFMPEG else 'No'}")
         
         # Auto-authenticate if refresh token is available
