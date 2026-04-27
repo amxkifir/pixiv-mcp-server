@@ -30,7 +30,7 @@ pip install -e .
 python get_token.py
 ```
 
-按终端提示完成 OAuth 登录，自动生成 `.env` 文件。
+按终端提示完成 OAuth 登录，自动生成 `.env` 文件。**`.env` 仅供终端直接启动时读取，MCP 客户端（Cherry Studio 等）不会自动加载 `.env`，需在客户端配置界面手动填入环境变量。**
 
 ## 配置 MCP 客户端
 
@@ -40,26 +40,63 @@ python get_token.py
     "pixiv": {
       "command": "uv",
       "args": [
-        "--directory", "项目绝对路径",
+        "--directory", "/path/to/pixiv-mcp-server",
         "run", "pixiv-mcp-server"
       ],
       "env": {
         "PIXIV_REFRESH_TOKEN": "从 .env 复制",
-        "DOWNLOAD_PATH": "./downloads",
-        "DOWNLOAD_PATH_TEMPLATE": "{type}/{author}"
+        "DOWNLOAD_PATH": "/path/to/downloads",
+        "DOWNLOAD_PATH_TEMPLATE": "{type}/{author}/{series}",
+        "FILENAME_TEMPLATE": "{author} - {title}_{id}"
       }
     }
   }
 }
 ```
 
-## 环境变量
+> **`DOWNLOAD_PATH` 必须使用绝对路径。** MCP 进程的工作目录不一定在项目根，相对路径（如 `./downloads`）会导致文件写入预期之外的位置。
+
+## 下载路径说明
+
+最终文件路径由三个变量拼接而成：
+
+```
+{DOWNLOAD_PATH} / {DOWNLOAD_PATH_TEMPLATE} / {FILENAME_TEMPLATE}.扩展名
+```
+
+### DOWNLOAD_PATH（下载根目录）
+
+所有下载文件的根目录，**必须使用绝对路径**。
+
+### DOWNLOAD_PATH_TEMPLATE（子目录模板）
+
+控制文件存放的子文件夹层级。可用变量：
+
+| 变量 | 来源 | 说明 |
+|------|------|------|
+| `{type}` | 自动设定 | `illust` / `novel` |
+| `{author}` | 作者名 | 非法文件名字符自动清理 |
+| `{series}` | 小说系列名 | **仅小说有此字段。有系列时归入系列子文件夹，无系列时为空**，路径自动退化为上一级 |
+| `{tag}` | 第一标签名 | 插画和小说均可用 |
+| `{id}` | 作品 ID | |
+| `{title}` | 作品标题 | |
+
+默认值：`{type}/{author}/{series}`
+
+### FILENAME_TEMPLATE（文件名模板）
+
+控制单文件命名，可用变量：`{author}` `{title}` `{id}`。默认 `{author} - {title}_{id}`。
+
+---
+
+## 环境变量一览
 
 | 变量 | 必需 | 说明 | 默认值 |
 |------|------|------|--------|
 | `PIXIV_REFRESH_TOKEN` | 是 | OAuth refresh token | - |
-| `DOWNLOAD_PATH` | 否 | 下载根目录 | `./downloads` |
-| `DOWNLOAD_PATH_TEMPLATE` | 否 | 子目录模板，可用 `{type}` `{author}` | `{type}/{author}` |
+| `DOWNLOAD_PATH` | 否 | 下载根目录，**强烈建议绝对路径** | `./downloads` |
+| `DOWNLOAD_PATH_TEMPLATE` | 否 | 子目录结构模板 | `{type}/{author}/{series}` |
+| `FILENAME_TEMPLATE` | 否 | 文件命名模板 | `{author} - {title}_{id}` |
 
 ## 工具列表（26 个）
 
@@ -109,9 +146,17 @@ python get_token.py
 | `set_refresh_token` | 更新 refresh token |
 | `refresh_token` | 手动刷新认证 |
 
-## 文件名模板
+## 下载效果示例
 
-`FILENAME_TEMPLATE` 支持变量：`{author}` `{title}` `{id}`（默认 `{author} - {title}_{id}`）
+```
+{下载根目录}/
+├── illust/画师A/                         ← 插画 {type}=illust
+│   └── 画师A - 作品名_12345678.jpg
+├── novel/作者B/                          ← 小说无系列，{series}为空
+│   └── 作者B - 短篇_87654321.txt
+└── novel/作者C/系列名/                   ← 小说有系列，自动归入子文件夹
+    └── 作者C - 第一章_11111111.txt
+```
 
 ## 免责声明
 
