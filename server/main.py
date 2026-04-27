@@ -50,9 +50,10 @@ except ImportError:
 
 try:
     from pixiv_mcp_server.state import state
-    from pixiv_mcp_server.downloader import _background_download_single, HAS_FFMPEG
+    from pixiv_mcp_server.downloader import _background_download_single, _background_download_novel, HAS_FFMPEG
     from pixiv_mcp_server.utils import (
         format_illust_summary,
+        format_novel_summary,
         format_user_summary,
         handle_api_error,
         handle_api_error_with_retry,
@@ -373,6 +374,240 @@ TOOLS = [
                 }
             }
         }
+    ),
+    # === 小说工具 ===
+    Tool(
+        name="search_novel",
+        description="Search for novels with various filters. Supports full-text search and tag-based search.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "word": {
+                    "type": "string",
+                    "description": "Search keyword"
+                },
+                "search_target": {
+                    "type": "string",
+                    "enum": ["partial_match_for_tags", "exact_match_for_tags", "text", "keyword"],
+                    "default": "partial_match_for_tags",
+                    "description": "Search target type: partial_match_for_tags, exact_match_for_tags, text (full-text), keyword"
+                },
+                "sort": {
+                    "type": "string",
+                    "enum": ["date_desc", "date_asc"],
+                    "default": "date_desc",
+                    "description": "Sort order"
+                },
+                "start_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "Start date in YYYY-MM-DD format (optional)"
+                },
+                "end_date": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                    "description": "End date in YYYY-MM-DD format (optional)"
+                },
+                "search_ai_type": {
+                    "type": "integer",
+                    "enum": [0, 1],
+                    "default": 0,
+                    "description": "AI type filter: 0=all, 1=non-AI only"
+                },
+                "offset": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Pagination offset"
+                }
+            },
+            "required": ["word"]
+        }
+    ),
+    Tool(
+        name="novel_detail",
+        description="Get detailed information about a specific novel.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "novel_id": {
+                    "type": "integer",
+                    "description": "The novel ID"
+                }
+            },
+            "required": ["novel_id"]
+        }
+    ),
+    Tool(
+        name="read_novel",
+        description="Read the full text of a novel. Content truncated at 3000 characters. Use download_novel to get the complete file.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "novel_id": {
+                    "type": "integer",
+                    "description": "The novel ID to read"
+                }
+            },
+            "required": ["novel_id"]
+        }
+    ),
+    Tool(
+        name="novel_recommended",
+        description="Get personalized novel recommendations.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "offset": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Pagination offset"
+                }
+            }
+        }
+    ),
+    Tool(
+        name="novel_follow",
+        description="Browse novels from followed authors.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "restrict": {
+                    "type": "string",
+                    "enum": ["public", "private"],
+                    "default": "public",
+                    "description": "Visibility restriction"
+                },
+                "offset": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Pagination offset"
+                }
+            }
+        }
+    ),
+    Tool(
+        name="novel_new",
+        description="Get the latest novels published on Pixiv.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "max_novel_id": {
+                    "type": "integer",
+                    "description": "Maximum novel ID for pagination (optional)"
+                }
+            }
+        }
+    ),
+    Tool(
+        name="user_novels",
+        description="Get a user's novel list.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "type": "integer",
+                    "description": "The user ID whose novels to list"
+                },
+                "offset": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Pagination offset"
+                }
+            },
+            "required": ["user_id"]
+        }
+    ),
+    Tool(
+        name="user_bookmarks_novel",
+        description="Browse user's bookmarked novels.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "user_id_to_check": {
+                    "type": "integer",
+                    "description": "User ID to check bookmarks for (optional, defaults to current user)"
+                },
+                "restrict": {
+                    "type": "string",
+                    "enum": ["public", "private"],
+                    "default": "public",
+                    "description": "Visibility restriction"
+                },
+                "tag": {
+                    "type": "string",
+                    "description": "Filter by specific tag"
+                },
+                "max_bookmark_id": {
+                    "type": "integer",
+                    "description": "Maximum bookmark ID for pagination"
+                }
+            }
+        }
+    ),
+    Tool(
+        name="download_novel",
+        description="Download one or more novels as .txt files. This is an asynchronous background operation.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "novel_id": {
+                    "type": "integer",
+                    "description": "Single novel ID to download"
+                },
+                "novel_ids": {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "description": "List of novel IDs to download"
+                }
+            },
+            "anyOf": [
+                {"required": ["novel_id"]},
+                {"required": ["novel_ids"]}
+            ]
+        }
+    ),
+    Tool(
+        name="novel_series",
+        description="Get details of a novel series including contained novels.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "series_id": {
+                    "type": "integer",
+                    "description": "The series ID"
+                }
+            },
+            "required": ["series_id"]
+        }
+    ),
+    Tool(
+        name="novel_comments",
+        description="Get comments for a specific novel.",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "novel_id": {
+                    "type": "integer",
+                    "description": "The novel ID"
+                },
+                "offset": {
+                    "type": "integer",
+                    "default": 0,
+                    "minimum": 0,
+                    "description": "Pagination offset"
+                },
+                "include_total_comments": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Include total comment count"
+                }
+            },
+            "required": ["novel_id"]
+        }
     )
 ]
 
@@ -461,6 +696,58 @@ async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[TextCon
                 arguments.get("user_id_to_check"),
                 arguments.get("restrict", "public"),
                 arguments.get("offset", 0)
+            )
+        elif name == "search_novel":
+            result = await tool_search_novel(
+                arguments["word"],
+                arguments.get("search_target", "partial_match_for_tags"),
+                arguments.get("sort", "date_desc"),
+                arguments.get("start_date"),
+                arguments.get("end_date"),
+                arguments.get("search_ai_type", 0),
+                arguments.get("offset", 0)
+            )
+        elif name == "novel_detail":
+            result = await tool_novel_detail(arguments["novel_id"])
+        elif name == "read_novel":
+            result = await tool_read_novel(arguments["novel_id"])
+        elif name == "novel_recommended":
+            result = await tool_novel_recommended(
+                arguments.get("offset", 0)
+            )
+        elif name == "novel_follow":
+            result = await tool_novel_follow(
+                arguments.get("restrict", "public"),
+                arguments.get("offset", 0)
+            )
+        elif name == "novel_new":
+            result = await tool_novel_new(
+                arguments.get("max_novel_id")
+            )
+        elif name == "user_novels":
+            result = await tool_user_novels(
+                arguments["user_id"],
+                arguments.get("offset", 0)
+            )
+        elif name == "user_bookmarks_novel":
+            result = await tool_user_bookmarks_novel(
+                arguments.get("user_id_to_check"),
+                arguments.get("restrict", "public"),
+                arguments.get("tag"),
+                arguments.get("max_bookmark_id")
+            )
+        elif name == "download_novel":
+            result = await tool_download_novel(
+                arguments.get("novel_id"),
+                arguments.get("novel_ids")
+            )
+        elif name == "novel_series":
+            result = await tool_novel_series(arguments["series_id"])
+        elif name == "novel_comments":
+            result = await tool_novel_comments(
+                arguments["novel_id"],
+                arguments.get("offset", 0),
+                arguments.get("include_total_comments", False)
             )
         else:
             result = f"错误：未知工具 '{name}'"
@@ -875,6 +1162,426 @@ async def tool_user_following(user_id_to_check: Optional[int] = None, restrict: 
         
     except Exception as e:
         return handle_api_error(e, f"获取用户关注列表")
+
+
+# === 小说工具实现 ===
+
+async def tool_search_novel(word: str, search_target: str = "partial_match_for_tags",
+                            sort: str = "date_desc", start_date: Optional[str] = None,
+                            end_date: Optional[str] = None, search_ai_type: int = 0,
+                            offset: int = 0) -> str:
+    """Search novel tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            raw_result = await asyncio.to_thread(
+                state.api.search_novel,
+                word=word,
+                search_target=search_target,
+                sort=sort,
+                start_date=start_date,
+                end_date=end_date,
+                search_ai_type=search_ai_type,
+                offset=offset
+            )
+        except Exception as raw_e:
+            return f"搜索小说 '{word}' 异常: {type(raw_e).__name__}: {raw_e}"
+
+        if raw_result is None:
+            return f"搜索小说 '{word}' 失败: API返回None(空响应)。"
+        if 'error' in raw_result:
+            return f"搜索小说 '{word}' 失败: API错误 - {raw_result['error']}"
+        if 'novels' not in raw_result:
+            return f"搜索小说 '{word}' 失败: 缺少novels字段。响应keys: {list(raw_result.keys())} 内容: {str(raw_result)[:500]}"
+
+        novels = raw_result['novels']
+        if not novels:
+            return f"搜索小说 '{word}' 未找到结果。"
+
+        summary = "\n".join([format_novel_summary(novel) for novel in novels[:10]])
+        return f"搜索小说 '{word}' 找到 {len(novels)} 个结果（显示前10个）：\n\n{summary}"
+
+    except Exception as e:
+        return handle_api_error(e, f"搜索小说 '{word}'")
+
+
+async def tool_novel_detail(novel_id: int) -> str:
+    """Novel detail tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            json_result = await asyncio.to_thread(state.api.novel_detail, novel_id)
+        except Exception as raw_e:
+            return f"获取小说详情异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取小说 {novel_id} 的详细信息: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取小说 {novel_id}: API错误 {json_result['error']}"
+        if 'novel' not in json_result:
+            return f"无法获取小说 {novel_id}: 响应缺少novel字段。keys: {list(json_result.keys())}"
+
+        novel = json_result['novel']
+        result = format_novel_summary(novel)
+        caption = novel.get('caption', '')
+        if caption:
+            result += f"\n\n简介: {caption[:500]}"
+        return result
+
+    except Exception as e:
+        return handle_api_error(e, f"获取小说详情 {novel_id}")
+
+
+async def tool_read_novel(novel_id: int) -> str:
+    """Read novel full text tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            json_result = await asyncio.to_thread(state.api.webview_novel, novel_id)
+        except Exception as raw_e:
+            return f"获取小说正文异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取小说 {novel_id} 的正文: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取小说 {novel_id}: API错误 {json_result['error']}"
+
+        novel_text = json_result.get('text', '')
+        novel_title = json_result.get('title', 'Untitled')
+        novel_author = json_result.get('userName', 'Unknown')
+
+        if not novel_text:
+            return f"小说 {novel_id} ('{novel_title}') 正文为空。"
+
+        total_chars = len(novel_text)
+        truncated = total_chars > 3000
+        display_text = novel_text[:3000] if truncated else novel_text
+
+        result = f"=== {novel_title} ===\n作者: {novel_author}\n\n{display_text}"
+
+        if truncated:
+            result += f"\n\n[内容被截断，仅显示前3000字，共{total_chars}字。]"
+            result += f"\n提示: 使用 download_novel(novel_id={novel_id}) 可以下载完整小说为 .txt 文件。"
+
+        return result
+
+    except Exception as e:
+        return handle_api_error(e, f"阅读小说 {novel_id}")
+
+
+async def tool_novel_recommended(offset: int = 0) -> str:
+    """Novel recommended tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.novel_recommended, offset=offset
+            )
+        except Exception as raw_e:
+            return f"获取推荐小说异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return "无法获取推荐小说: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取推荐小说: API错误 {json_result['error']}"
+        if 'novels' not in json_result:
+            return f"无法获取推荐小说: 缺少novels字段。keys: {list(json_result.keys())}"
+
+        novels = json_result['novels']
+        if not novels:
+            return "暂无推荐小说。"
+
+        summary = "\n".join([format_novel_summary(novel) for novel in novels[:10]])
+        return f"推荐小说（显示前10个）：\n\n{summary}"
+
+    except Exception as e:
+        return handle_api_error(e, "获取推荐小说")
+
+
+async def tool_novel_follow(restrict: str = "public", offset: int = 0) -> str:
+    """Novel follow tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.novel_follow, restrict=restrict, offset=offset
+            )
+        except Exception as raw_e:
+            return f"获取关注小说动态异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return "无法获取关注小说动态: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取关注小说动态: API错误 {json_result['error']}"
+        if 'novels' not in json_result:
+            return f"无法获取关注小说动态: 缺少novels字段。keys: {list(json_result.keys())}"
+
+        novels = json_result['novels']
+        if not novels:
+            return "暂无关注作者的小说动态。"
+
+        summary = "\n".join([format_novel_summary(novel) for novel in novels[:10]])
+        return f"关注动态 - 小说（显示前10个）：\n\n{summary}"
+
+    except Exception as e:
+        return handle_api_error(e, "获取关注小说动态")
+
+
+async def tool_novel_new(max_novel_id: Optional[int] = None) -> str:
+    """Novel new tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            kwargs = {}
+            if max_novel_id:
+                kwargs['max_novel_id'] = max_novel_id
+            json_result = await asyncio.to_thread(state.api.novel_new, **kwargs)
+        except Exception as raw_e:
+            return f"获取最新小说异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return "无法获取最新小说: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取最新小说: API错误 {json_result['error']}"
+        if 'novels' not in json_result:
+            return f"无法获取最新小说: 缺少novels字段。keys: {list(json_result.keys())}"
+
+        novels = json_result['novels']
+        if not novels:
+            return "暂无最新小说。"
+
+        summary = "\n".join([format_novel_summary(novel) for novel in novels[:10]])
+        return f"最新小说（显示前10个）：\n\n{summary}"
+
+    except Exception as e:
+        return handle_api_error(e, "获取最新小说")
+
+
+async def tool_user_novels(user_id: int, offset: int = 0) -> str:
+    """User novels tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.user_novels, user_id, offset=offset
+            )
+        except Exception as raw_e:
+            return f"获取用户小说列表异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取用户 {user_id} 的小说列表: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取用户 {user_id}: API错误 {json_result['error']}"
+        if 'novels' not in json_result:
+            return f"无法获取用户 {user_id}: 缺少novels字段。keys: {list(json_result.keys())}"
+
+        novels = json_result['novels']
+        if not novels:
+            return f"用户 {user_id} 暂无小说作品。"
+
+        summary = "\n".join([format_novel_summary(novel) for novel in novels[:10]])
+        return f"用户 {user_id} 的小说列表（显示前10个）：\n\n{summary}"
+
+    except Exception as e:
+        return handle_api_error(e, f"获取用户小说列表")
+
+
+async def tool_user_bookmarks_novel(user_id_to_check: Optional[int] = None,
+                                    restrict: str = "public", tag: Optional[str] = None,
+                                    max_bookmark_id: Optional[int] = None) -> str:
+    """User bookmarks novel tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        user_id = user_id_to_check or state.user_id
+        if not user_id:
+            return "错误：无法确定用户ID。请先认证或提供 user_id_to_check 参数。"
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.user_bookmarks_novel,
+                user_id, restrict=restrict, tag=tag, max_bookmark_id=max_bookmark_id
+            )
+        except Exception as raw_e:
+            return f"获取小说收藏异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取用户 {user_id} 的小说收藏: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取用户 {user_id}: API错误 {json_result['error']}"
+        if 'novels' not in json_result:
+            return f"无法获取用户 {user_id}: 缺少novels字段。keys: {list(json_result.keys())}"
+
+        novels = json_result['novels']
+        if not novels:
+            return f"用户 {user_id} 暂无收藏小说。"
+
+        summary = "\n".join([format_novel_summary(novel) for novel in novels[:10]])
+        return f"用户 {user_id} 的小说收藏（显示前10个）：\n\n{summary}"
+
+    except Exception as e:
+        return handle_api_error(e, "获取小说收藏")
+
+
+async def tool_download_novel(novel_id: Optional[int] = None,
+                              novel_ids: Optional[List[int]] = None) -> str:
+    """Download novel tool implementation - synchronous for error visibility."""
+    if not novel_id and not novel_ids:
+        return "错误：必须提供 novel_id (单个ID) 或 novel_ids (ID列表) 参数之一。"
+
+    id_list = []
+    if novel_id:
+        id_list.append(novel_id)
+    if novel_ids:
+        id_list.extend(novel_ids)
+
+    unique_ids = sorted(list(set(id_list)))
+
+    results = []
+    for an_id in unique_ids:
+        try:
+            await refresh_token_if_needed()
+
+            # 获取小说元数据
+            try:
+                detail_result = await asyncio.to_thread(state.api.novel_detail, an_id)
+            except Exception as e:
+                results.append(f"[{an_id}] 获取元数据异常: {e}")
+                continue
+
+            if not detail_result or 'error' in detail_result:
+                err = detail_result.get('error', {}) if detail_result else {}
+                results.append(f"[{an_id}] 获取元数据失败: {err.get('message', 'API返回空')}")
+                continue
+
+            novel = detail_result['novel']
+
+            # 获取小说正文
+            try:
+                webview_result = await asyncio.to_thread(state.api.webview_novel, an_id)
+            except Exception as e:
+                results.append(f"[{an_id}] 获取正文异常: {e}")
+                continue
+
+            if not webview_result or 'error' in webview_result:
+                err = webview_result.get('error', {}) if webview_result else {}
+                results.append(f"[{an_id}] 获取正文失败: {err.get('message', 'API返回空')}")
+                continue
+
+            novel_text = webview_result.get('text', '')
+            if not novel_text:
+                results.append(f"[{an_id}] 正文为空")
+                continue
+
+            # 保存文件 - 复用路径生成逻辑
+            compat_dict = {
+                'id': an_id,
+                'title': novel.get('title', 'Untitled'),
+                'user': novel.get('user', {}),
+                'type': 'novel',
+                'tags': novel.get('tags', []),
+            }
+            from pixiv_mcp_server.utils import _generate_path_from_template, _generate_filename
+            save_dir = Path(state.download_path) / _generate_path_from_template(compat_dict)
+            save_dir.mkdir(parents=True, exist_ok=True)
+            filename = _generate_filename(compat_dict) + '.txt'
+            filepath = save_dir / filename
+
+            await asyncio.to_thread(filepath.write_text, novel_text, encoding='utf-8')
+            results.append(f"[{an_id}] 下载成功 → {filepath}")
+
+        except Exception as e:
+            results.append(f"[{an_id}] 下载异常: {e}")
+
+    return f"下载完成 ({len(results)}/{len(unique_ids)})：\n" + "\n".join(results)
+
+
+async def tool_novel_series(series_id: int) -> str:
+    """Novel series tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            json_result = await asyncio.to_thread(state.api.novel_series, series_id)
+        except Exception as raw_e:
+            return f"获取系列详情异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取系列 {series_id} 的详情: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取系列 {series_id}: API错误 {json_result['error']}"
+
+        series_detail = json_result.get('novel_series_detail', {})
+        novel_list = json_result.get('novels', [])
+
+        series_name = series_detail.get('title', 'Unknown')
+        series_caption = series_detail.get('caption', '')
+        total = series_detail.get('total', 0)
+
+        result = f"系列: {series_name} (ID: {series_id})\n包含 {total} 本小说"
+        if series_caption:
+            result += f"\n简介: {series_caption[:300]}"
+
+        if novel_list:
+            summaries = []
+            for novel in novel_list[:10]:
+                title = novel.get('title', 'Untitled')
+                nid = novel.get('id', 0)
+                summaries.append(f"  - [{nid}] {title}")
+            result += f"\n\n收录小说（显示前10个）：\n" + "\n".join(summaries)
+
+        return result
+
+    except Exception as e:
+        return handle_api_error(e, f"获取系列详情 {series_id}")
+
+
+async def tool_novel_comments(novel_id: int, offset: int = 0,
+                              include_total_comments: bool = False) -> str:
+    """Novel comments tool implementation."""
+    try:
+        await refresh_token_if_needed()
+
+        try:
+            json_result = await asyncio.to_thread(
+                state.api.novel_comments, novel_id, offset=offset,
+                include_total_comments=include_total_comments
+            )
+        except Exception as raw_e:
+            return f"获取小说评论异常: {type(raw_e).__name__}: {raw_e}"
+
+        if not json_result:
+            return f"无法获取小说 {novel_id} 的评论: API返回空。"
+        if 'error' in json_result:
+            return f"无法获取小说 {novel_id}: API错误 {json_result['error']}"
+
+        comments = json_result.get('comments', [])
+        total = json_result.get('total_comments', 0)
+
+        if not comments:
+            return f"小说 {novel_id} 暂无评论。"
+
+        comment_list = []
+        for c in comments[:10]:
+            user = c.get('user', {})
+            username = user.get('name', 'Anonymous')
+            text = c.get('comment', '')
+            comment_list.append(f"[{username}]: {text[:200]}")
+
+        result = f"小说 {novel_id} 的评论（共{total}条，显示前{len(comment_list)}条）：\n\n" + "\n\n".join(comment_list)
+        return result
+
+    except Exception as e:
+        return handle_api_error(e, f"获取小说评论")
+
+
 
 def setup_environment():
     """Setup environment variables and configuration."""

@@ -242,6 +242,26 @@ Pixiv的图片服务器有防盗链保护，需要正确的Referer头才能访�
     
     return url
 
+def format_novel_summary(novel: dict) -> str:
+    """格式化小说摘要信息"""
+    tags = ", ".join([tag.get('name', '') for tag in novel.get('tags', [])[:5]])
+    series_info = ""
+    series_data = novel.get('series')
+    if series_data:
+        series_name = series_data.get('title', 'Unknown')
+        series_info = f"\n  系列: {series_name} (ID: {series_data.get('id')})"
+
+    summary = (
+        f"ID: {novel.get('id')} - \"{novel.get('title')}\"\n"
+        f"  作者: {novel.get('user', {}).get('name')} (ID: {novel.get('user', {}).get('id')})\n"
+        f"  类型: novel\n"
+        f"  标签: {tags}\n"
+        f"  字数: {novel.get('text_length', 0)}, 是否原创: {'是' if novel.get('is_original') else '否'}\n"
+        f"  收藏数: {novel.get('total_bookmarks', 0)}, 浏览数: {novel.get('total_view', 0)}, 评论数: {novel.get('total_comments', 0)}"
+        f"{series_info}"
+    )
+    return summary
+
 def format_user_summary(user: dict) -> str:
     return (
         f"用户ID: {user.get('id')} - {user.get('name')} (@{user.get('account')})\n"
