@@ -16,12 +16,13 @@ class PixivState:
         self.refresh_token: Optional[str] = os.getenv('PIXIV_REFRESH_TOKEN')
         self.download_path = os.getenv('DOWNLOAD_PATH', './downloads')
         self.filename_template = os.getenv('FILENAME_TEMPLATE', '{author} - {title}_{id}')
+        self.download_path_template = os.getenv('DOWNLOAD_PATH_TEMPLATE', '')
         # 新增：并发下载控制器，限制为5个并发
         self.download_semaphore = asyncio.Semaphore(5)
 
         proxy = os.getenv('https_proxy')
         if proxy:
-            self.api.set_proxy(proxy)
+            self.api.set_api_proxy(proxy)
             logger.info(f"已配置代理: {proxy}")
 
 # 创建全局唯一的 state 实例

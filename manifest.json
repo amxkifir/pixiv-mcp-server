@@ -3,8 +3,8 @@
   "name": "pixiv-mcp-server",
   "display_name": "Pixiv MCP Server",
   "version": "2.0.0",
-  "description": "A powerful Pixiv toolset for Large Language Models via MCP",
-  "long_description": "A comprehensive Pixiv integration that provides browsing, searching, and downloading capabilities for Pixiv content through the Model Context Protocol (MCP). Features include multi-dimensional search, intelligent downloading with automatic file organization, community content browsing, and secure OAuth 2.0 authentication.",
+  "description": "26 tools for browsing, searching & downloading Pixiv illustrations and novels via MCP",
+  "long_description": "A comprehensive Pixiv MCP server with 26 tools covering illustrations and novels. Features include keyword/tag search, ranking browsing, personalized recommendations, novel reading, batch downloading with auto file organization, Ugoira-to-GIF conversion, and secure OAuth 2.0 PKCE authentication.",
   "author": {
     "name": "AI",
     "email": "noreply@example.com",
@@ -17,7 +17,7 @@
   "homepage": "https://github.com/amxkifir/pixiv-mcp-server",
   "documentation": "https://github.com/amxkifir/pixiv-mcp-server/blob/main/README.md",
   "support": "https://github.com/amxkifir/pixiv-mcp-server/issues",
-  "keywords": ["pixiv", "art", "illustration", "download", "search", "mcp"],
+  "keywords": ["pixiv", "art", "illustration", "novel", "download", "search", "mcp"],
   "license": "MIT",
   "server": {
     "type": "python",
@@ -29,6 +29,7 @@
         "PIXIV_REFRESH_TOKEN": "${user_config.pixiv_refresh_token}",
         "DOWNLOAD_PATH": "${user_config.download_path}",
         "FILENAME_TEMPLATE": "${user_config.filename_template}",
+        "DOWNLOAD_PATH_TEMPLATE": "${user_config.download_path_template}",
         "https_proxy": "${user_config.proxy_url}"
       }
     }
@@ -93,6 +94,50 @@
     {
       "name": "user_following",
       "description": "View user's following list"
+    },
+    {
+      "name": "search_novel",
+      "description": "Search for novels with various filters"
+    },
+    {
+      "name": "novel_detail",
+      "description": "Get detailed information about a specific novel"
+    },
+    {
+      "name": "read_novel",
+      "description": "Read the full text of a novel"
+    },
+    {
+      "name": "novel_recommended",
+      "description": "Get personalized novel recommendations"
+    },
+    {
+      "name": "novel_follow",
+      "description": "Browse novels from followed authors"
+    },
+    {
+      "name": "novel_new",
+      "description": "Get the latest novels published on Pixiv"
+    },
+    {
+      "name": "user_novels",
+      "description": "Get a user's novel list"
+    },
+    {
+      "name": "user_bookmarks_novel",
+      "description": "Browse user's bookmarked novels"
+    },
+    {
+      "name": "download_novel",
+      "description": "Download novels as .txt files"
+    },
+    {
+      "name": "novel_series",
+      "description": "Get details of a novel series"
+    },
+    {
+      "name": "novel_comments",
+      "description": "Get comments for a specific novel"
     }
   ],
   "tools_generated": false,
@@ -123,6 +168,13 @@
       "description": "Template for downloaded file names. Available variables: {author}, {title}, {id}",
       "required": false,
       "default": "{author} - {title}_{id}"
+    },
+    "download_path_template": {
+      "type": "string",
+      "title": "Download Path Template",
+      "description": "Template for download subdirectory structure. Available variables: {author}, {type}, {tag}, {id}, {title}, {series}",
+      "required": false,
+      "default": "{type}/{author}"
     },
     "proxy_url": {
       "type": "string",

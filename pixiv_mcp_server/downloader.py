@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from .state import state
 from .utils import (
     _generate_filename,
+    _generate_path_from_template,
     _sanitize_filename,
     check_ffmpeg,
     handle_api_error,
@@ -85,7 +86,7 @@ async def _background_download_single(illust_id: int):
             page_count = illust.get('page_count', 1)
             illust_type = illust.get('type')
             
-            save_path_base = Path(state.download_path)
+            save_path_base = Path(state.download_path) / _generate_path_from_template(illust)
             if page_count > 1 or illust_type == 'ugoira':
                 sub_folder_name = _sanitize_filename(f"{illust_id} - {illust.get('title', 'Untitled')}")
                 save_path_base = save_path_base / sub_folder_name
@@ -93,23 +94,23 @@ async def _background_download_single(illust_id: int):
             save_path_base.mkdir(parents=True, exist_ok=True)
             
             if illust_type == 'ugoira':
-                if not HAS_FFMPEG:
-                    logger.warning(f"跳过动图转换 ({illust_id}): 未找到 FFmpeg。")
-                    return
-                
                 metadata = await asyncio.to_thread(state.api.ugoira_metadata, illust_id)
                 error = handle_api_error(metadata)
                 if error:
                     logger.error(f"下载失败 ({illust_id}): 无法获取动图元数据: {error}")
                     return
-                
+
                 zip_url = metadata['ugoira_metadata']['zip_urls']['medium']
                 zip_filename = os.path.basename(urlparse(zip_url).path)
                 zip_path = save_path_base / zip_filename
-                
+
                 await asyncio.to_thread(state.api.download, zip_url, path=str(save_path_base))
                 logger.info(f"动图 {illust_id} 的 .zip 文件已下载至 {zip_path}")
-                
+
+                if not HAS_FFMPEG:
+                    logger.warning(f"跳过GIF转换 ({illust_id}): 未找到 FFmpeg。zip文件已保存。")
+                    return
+
                 gif_filename_base = _generate_filename(illust)
                 final_gif_path = save_path_base / f"{gif_filename_base}.gif"
 
@@ -139,3 +140,51 @@ async def _background_download_single(illust_id: int):
 
         except Exception as e:
             logger.error(f"背景下载任务 ({illust_id}) 发生未预期错误: {e}", exc_info=True)
+
+
+async def _background_download_novel(novel_id: int):
+    """在背景下载单个小说为 .txt 文件"""
+    async with state.download_semaphore:
+        logger.info(f"后台任务开始：下载小说 ID {novel_id}")
+        try:
+            # 获取小说元数据
+            detail_result = await asyncio.to_thread(state.api.novel_detail, novel_id)
+            error = handle_api_error(detail_result)
+            if error:
+                logger.error(f"下载小说失败 ({novel_id}): 无法获取小说信息: {error}")
+                return
+
+            novel = detail_result['novel']
+
+            # 获取小说全文
+            webview_result = await asyncio.to_thread(state.api.webview_novel, novel_id)
+            error = handle_api_error(webview_result)
+            if error or not webview_result or 'text' not in webview_result:
+                logger.error(f"下载小说失败 ({novel_id}): 无法获取小说正文")
+                return
+
+            novel_text = webview_result.get('text', '')
+
+            # 构造 compat_dict 以复用现有的路径和文件命名函数
+            compat_dict = {
+                'id': novel_id,
+                'title': novel.get('title', 'Untitled'),
+                'user': novel.get('user', {}),
+                'type': 'novel',
+                'tags': novel.get('tags', []),
+                'series': novel.get('series'),
+            }
+
+            save_dir = Path(state.download_path) / _generate_path_from_template(compat_dict)
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            filename = _generate_filename(compat_dict) + '.txt'
+            filepath = save_dir / filename
+
+            # 写入 .txt 文件
+            await asyncio.to_thread(filepath.write_text, novel_text, encoding='utf-8')
+
+            logger.info(f"后台任务成功：小说 {novel_id} 已下载至 {filepath}")
+
+        except Exception as e:
+            logger.error(f"后台下载小说任务 ({novel_id}) 发生未预期错误: {e}", exc_info=True)

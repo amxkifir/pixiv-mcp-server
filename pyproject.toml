@@ -1,7 +1,7 @@
 [project]
 name = "pixiv-mcp-server"
 version = "2.0.0"
-description = "A powerful Pixiv toolset for Large Language Models via MCP."
+description = "Pixiv MCP Server — 26 tools for browsing, searching & downloading Pixiv illustrations and novels via MCP."
 authors = [{ name = "AI", email = "noreply@example.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"

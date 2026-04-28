@@ -25,3 +25,7 @@ Thumbs.db
 
 # 日志文件
 *.log
+
+# Node
+node_modules/
+package-lock.json

@@ -13,9 +13,3 @@ python-dotenv>=1.0.0
 # Optional dependencies for enhanced functionality
 # FFmpeg Python wrapper (optional, for Ugoira processing)
 # ffmpeg-python>=0.2.0
-
-# Development and testing dependencies (optional)
-# pytest>=7.0.0
-# pytest-asyncio>=0.21.0
-# black>=23.0.0
-# flake8>=6.0.0
