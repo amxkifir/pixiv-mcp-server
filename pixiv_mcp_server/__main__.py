@@ -9,16 +9,14 @@ def setup_environment():
     这是启动过程的第一步，确保环境准备就绪。
     """
     load_dotenv()
-    
-    # 解决部分MCP客户端使用 `KEY=VALUE` 格式传递环境变量的问题
-    # 这段逻辑必须在任何其他模块导入之前执行
-    for key, value in os.environ.items():
-        if '=' in value:
-            try:
-                k, v = value.split('=', 1)
-                os.environ[k] = v
-            except ValueError:
-                pass # 忽略无法解析的值
+
+    # 仅处理白名单变量：部分MCP客户端会以 `KEY=VALUE` 形式传入值，
+    # 这里只剥离 PIXIV_REFRESH_TOKEN 的冗余前缀，避免误解析含 '=' 的 URL/base64/代理等值，
+    # 也避免边遍历 os.environ 边修改它。
+    prefix = 'PIXIV_REFRESH_TOKEN='
+    raw = os.environ.get('PIXIV_REFRESH_TOKEN')
+    if raw is not None and raw.startswith(prefix):
+        os.environ['PIXIV_REFRESH_TOKEN'] = raw[len(prefix):]
 
 def main():
     """主函数：初始化并执行服务器"""

@@ -36,6 +36,11 @@ async def refresh_token_if_needed() -> bool:
         
         if result and 'access_token' in result:
             state.is_authenticated = True
+            # 同步用户ID，避免手动刷新后查询自己收藏/关注时因 user_id 为空而失败
+            try:
+                state.user_id = state.api.user_id
+            except Exception:
+                pass
             logger.info("Token刷新成功")
             return True
         else:

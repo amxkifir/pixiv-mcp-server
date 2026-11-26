@@ -139,6 +139,31 @@ async def illust_detail(illust_id: int) -> str:
     return json.dumps(json_result.get('illust', {}), ensure_ascii=False, indent=2)
 
 @mcp.tool()
+async def illust_comments(illust_id: int, offset: int = 0) -> str:
+    """获取指定插画的评论列表。pixiv 评论接口已迁移至 v3（v1/v2 已失效返回404）。"""
+    def _call():
+        params = {"illust_id": illust_id}
+        if offset:
+            params["offset"] = offset
+        r = state.api.no_auth_requests_call(
+            "GET", f"{state.api.hosts}/v3/illust/comments", params=params, req_auth=True
+        )
+        return state.api.parse_result(r)
+    try:
+        json_result = await asyncio.to_thread(_call)
+    except Exception as e:
+        logger.error(f"获取评论失败 ({illust_id}): {e}", exc_info=True)
+        return f"错误: 获取评论失败: {e}"
+    error = handle_api_error(json_result)
+    if error:
+        return error
+    comments = json_result.get('comments', [])
+    if not comments:
+        return f"插画 {illust_id} 暂无评论。"
+    lines = [f"- [{c.get('id')}] {c.get('user', {}).get('name', '未知用户')}: {c.get('comment', '')}" for c in comments]
+    return f"插画 {illust_id} 的评论（共 {len(comments)} 条）:\n\n" + "\n".join(lines)
+
+@mcp.tool()
 async def illust_related(illust_id: int, offset: int = 0, include_thumbnail: bool = False) -> str:
     """获取与指定插画相关的推荐作品。"""
     json_result = await asyncio.to_thread(state.api.illust_related, illust_id, offset=offset)
@@ -196,15 +221,16 @@ async def illust_recommended(offset: int = 0, include_thumbnail: bool = False) -
     retry_result = None
     if error and "token" in error.lower():
         logger.info("检测到令牌错误，尝试刷新令牌并重试...")
-        refresh_result = await refresh_token_if_needed()
-        if "成功" in refresh_result:
+        refresh_ok = await refresh_token_if_needed()
+        if refresh_ok:
             retry_result = await asyncio.to_thread(state.api.illust_recommended, offset=offset)
             error = handle_api_error(retry_result)
-    
+
+    # 先判 error，避免非空错误字典被当作真值吞掉
+    if error:
+        return error
     if retry_result:
         json_result = retry_result
-    elif error:
-        return error
     
     illusts = json_result.get('illusts', [])
     if not illusts:
